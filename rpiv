@@ -1,0 +1,51 @@
+#!/bin/sh
+
+###############################################################################3
+# 
+# This tool outputs settings for Carbon Lite player.  
+# Use: 
+#  rpi-verify
+#
+
+#. ./rpiv.lib
+. ./rpiv-functions
+
+
+echo Checking for DHCP Configuration...
+check_dhcp
+
+echo " "
+echo " "
+echo " "
+
+echo Checking hostname...
+check_hostname
+
+echo " "
+echo " "
+echo " "
+
+
+echo Checking time/date and ntp settings...
+check_time
+
+echo " "
+echo " "
+echo " "
+
+
+echo Checking FTP...
+echo "(Not yet implemented)"
+
+echo " "
+echo " "
+echo " "
+
+echo Checking Hamachi...
+echo "(Not yet implemented)"
+echo " "
+echo " "
+echo " "
+
+
+
