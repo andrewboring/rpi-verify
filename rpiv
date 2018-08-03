@@ -1,51 +1,132 @@
 #!/bin/sh
 
-###############################################################################3
+###############################################################################
 # 
 # This tool outputs settings for Carbon Lite player.  
 # Use: 
-#  rpi-verify
+#  rpiv
 #
+###############################################################################
 
 #. ./rpiv.lib
-. ./rpiv-functions
-
-
-echo Checking for DHCP Configuration...
-check_dhcp
-
-echo " "
-echo " "
-echo " "
-
-echo Checking hostname...
-check_hostname
-
-echo " "
-echo " "
-echo " "
-
-
-echo Checking time/date and ntp settings...
-check_time
-
-echo " "
-echo " "
-echo " "
-
-
-echo Checking FTP...
-echo "(Not yet implemented)"
-
-echo " "
-echo " "
-echo " "
-
-echo Checking Hamachi...
-echo "(Not yet implemented)"
-echo " "
-echo " "
-echo " "
+#. ./rpiv-functions
 
 
 
+# Change to YES to enable each test:
+
+DHCP_TEST=YES
+HOSTNAME_TEST=YES
+DATETIME_TEST=YES
+NTP_TEST=YES
+TIMESYNCD_TEST=YES
+FTP_TEST=YES
+HAMACHI_TEST=YES
+
+# In the future, these settings will be automatically configured based on which 
+# company or player grouping is being tested. For now, set these manually. 
+#
+#
+
+
+export HOSTNAME=$(hostname)
+export FQDN=$(hostname).theatre.reg
+export DOMAIN=theatre.reg
+export IP=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
+export DHCP_ENABLED=$(grep IP /etc/netctl/ethernet-dhcp | grep -v '^#')
+#export FTPSTATUS=$(systemctl status vsftp | grep Active | awk '{print $2}')
+export RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
+#export NTPSTATUS=$(systemctl status ntpd | grep Active | awk '{print $2}')
+#export TIMESYNCSTATUS=$(systemctl status systemd-timesyncd | grep Active | awk '{print $2}')
+
+
+
+clear
+
+# DHCP_TEST
+if [ $DHCP_TEST = "YES" ]; then
+	echo "Checking DHCP setting in Netctl Profile..."
+	DHCP_ENABLED=$(grep IP /etc/netctl/ethernet-dhcp | grep -v '^#')
+	if [ "$DHCP_ENABLED" = 'IP=dhcp' ]; then
+		echo "Found '$DHCP_ENABLED' in /etc/netctl/ethernet-dhcp."
+		echo "System appears to be configured for DHCP."
+		echo "The current IP is $IP."
+		echo " "
+	else
+		echo "DHCP does not appear to be configured for DHCP in netctrl profile." 
+		echo "The current IP is $IP."
+		echo " " 
+	fi
+else	
+	echo "DHCP test is disabled. Skipping..."
+fi
+
+
+# HOSTNAME_TEST
+if [ $HOSTNAME_TEST = "YES" ]; then
+	echo "Checking hostname..."
+	if [ "$HOSTNAME" = "$FQDN" ]; then
+		echo $HOSTNAME is fully qualified.
+		echo " " 
+	else 
+		echo $HOSTNAME is not fully qualified
+		echo "Please run 'hostnamectl set-hostname $HOSTNAME.$DOMAIN'"
+		echo " "
+	fi
+else
+	echo "Hostname test is disabled. Skipping..."
+fi
+
+
+
+
+# DATETIME_TEST 
+
+if [ "$DATETIME_TEST" = "YES" ]; then
+	echo Checking time/date and ntp settings...
+	echo " "
+	timedatectl
+	echo " "
+else
+	echo Date/Time Test is disabled. Skipping...
+fi
+
+# NTP_TEST 
+if [ $NTP_TEST = "YES" ]; then
+	#echo "Checking NTP..."
+	echo "NTP test is not (yet) available. Skipping..."
+	echo " "
+else
+	echo "NTPD test is disabled. Skipping..."
+fi
+
+# TIMESYNC_TEST 
+if [ "$TIMESYNC" = "YES" ]; then
+	#echo "Checking systemd-timesyncd..."
+	echo "Timesync test is not (yet) available. Skipping..."
+	echo " "
+else
+	echo "Timesync test is disabled. Skipping..."
+fi
+
+
+# FTP_TEST
+if [ "$FTP_TEST" = "YES" ]; then
+	#echo "Checking FTP..."
+	echo "FTP test is not (yet) available. Skipping..."
+	echo " "
+else
+	echo "FTP test is disabled. Skipping..."
+fi
+
+# HAMACHI_TEST 
+if [ "$HAMACHI" = "YES" ]; then
+	echo Checking Hamachi...
+	echo "Hamachi test is not (yet) available. Skipping..."
+	echo " "
+else
+	echo "Hamachi test is disabled. Skipping..."
+fi
+
+
+echo "Test complete."
