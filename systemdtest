@@ -1,0 +1,11 @@
+#!/bin/bash
+SVC=$0
+STATUS=$(systemctl status $SVC):wq
+
+for LINE in "${!STATUS[@]}"; do
+	split 
+	echo $SVC is $LOADED
+	echo $SVC is $ACTIVE
+done
+	
+	
