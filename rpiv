@@ -1,8 +1,6 @@
 #!/bin/sh
 
-###############################################################################
-# 
-# This tool outputs settings for Carbon Lite player.  
+############################################################################### # # This tool outputs settings for Carbon Lite player.  
 # Use: 
 #  rpiv
 #
@@ -22,6 +20,7 @@ NTP_TEST=YES
 TIMESYNCD_TEST=YES
 FTP_TEST=YES
 HAMACHI_TEST=YES
+DNS_TEST=NO
 
 # In the future, these settings will be automatically configured based on which 
 # company or player grouping is being tested. For now, set these manually. 
@@ -36,10 +35,30 @@ export IP=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
 export DHCP_ENABLED=$(grep IP /etc/netctl/ethernet-dhcp | grep -v '^#')
 #export FTPSTATUS=$(systemctl status vsftp | grep Active | awk '{print $2}')
 export RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
-#export NTPSTATUS=$(systemctl status ntpd | grep Active | awk '{print $2}')
-#export TIMESYNCSTATUS=$(systemctl status systemd-timesyncd | grep Active | awk '{print $2}')
 
 
+########################
+# FUNCTIONS TO BE MOVED
+########################
+
+check_svc() {
+SVC=$1
+ESTATUS=$(systemctl is-enabled $SVC)
+ASTATUS=$(systemctl is-active $SVC)
+if [ "$ESTATUS" = "enabled" ]; then
+	echo "$SVC is $ESTATUS."
+	echo "$SVC is $ASTATUS."
+
+else 
+	echo $ESTATUS
+fi
+}
+
+
+
+ftp_test() {
+	echo "FTP testing not yet available"
+}
 
 clear
 
@@ -93,27 +112,28 @@ fi
 
 # NTP_TEST 
 if [ $NTP_TEST = "YES" ]; then
-	#echo "Checking NTP..."
-	echo "NTP test is not (yet) available. Skipping..."
+	echo "Checking NTPD..."
+	check_svc ntpd
 	echo " "
 else
 	echo "NTPD test is disabled. Skipping..."
 fi
 
 # TIMESYNC_TEST 
-if [ "$TIMESYNC" = "YES" ]; then
-	#echo "Checking systemd-timesyncd..."
-	echo "Timesync test is not (yet) available. Skipping..."
+if [ $TIMESYNCD_TEST = "YES" ]; then
+	echo "Checking Timesyncd..."
+	check_svc systemd-timesyncd
 	echo " "
 else
 	echo "Timesync test is disabled. Skipping..."
 fi
 
 
+
 # FTP_TEST
 if [ "$FTP_TEST" = "YES" ]; then
-	#echo "Checking FTP..."
-	echo "FTP test is not (yet) available. Skipping..."
+	echo "Checking FTP..."
+	check_svc vs-ftpd
 	echo " "
 else
 	echo "FTP test is disabled. Skipping..."
@@ -127,6 +147,16 @@ if [ "$HAMACHI" = "YES" ]; then
 else
 	echo "Hamachi test is disabled. Skipping..."
 fi
+
+# DNS_TEST 
+if [ "$DNS_TEST" = "YES" ]; then
+	#echo "Checking DNS..."
+	echo "DNS test is not (yet) available. Skipping..."
+	echo " "
+else
+	echo "DNS test is disabled. Skipping..."
+fi
+
 
 
 echo "Test complete."
