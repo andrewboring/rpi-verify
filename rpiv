@@ -1,16 +1,18 @@
 #!/bin/sh
 
-############################################################################### # # This tool outputs settings for Carbon Lite player.  
+############################################################################### 
+# # This tool outputs settings for Carbon Lite player.  
 # Use: 
-#  rpiv
+#  ./rpiv
 #
 ###############################################################################
 
-#. ./rpiv.lib
-#. ./rpiv-functions
 
 
 
+# In the future, these settings will be automatically configured based on which 
+# company or player grouping is being tested. For now, set these manually. 
+#
 # Change to YES to enable each test:
 
 DHCP_TEST=YES
@@ -22,10 +24,14 @@ FTP_TEST=YES
 HAMACHI_TEST=YES
 DNS_TEST=NO
 
+# Set FTP password here if you don't want to enter it on cmd line.
+# Default: empty
+FTPPASS=
+
+
+
 # In the future, these settings will be automatically configured based on which 
 # company or player grouping is being tested. For now, set these manually. 
-#
-#
 
 
 export HOSTNAME=$(hostname)
@@ -35,7 +41,7 @@ export IP=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
 export DHCP_ENABLED=$(grep IP /etc/netctl/ethernet-dhcp | grep -v '^#')
 #export FTPSTATUS=$(systemctl status vsftp | grep Active | awk '{print $2}')
 export RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
-
+export DNSAUTHSRV=$(drill -4 @RESOLVER $DOMAIN NS | grep -v '^\;\|^$' | grep -v 'NS\|AAAA' | tail -1 | awk '{print $5}')
 
 ########################
 # FUNCTIONS TO BE MOVED
@@ -50,14 +56,41 @@ if [ "$ESTATUS" = "enabled" ]; then
 	echo "$SVC is $ASTATUS."
 
 else 
-	echo $ESTATUS
+	echo "$ESTATUS"
 fi
 }
 
 
 
-ftp_test() {
-	echo "FTP testing not yet available"
+test_ftp() {
+	if [ -z "$FTPPASS" ]; then
+		echo -n "Enter FTP password for username 'administrator': "; read FTPPASS
+	fi
+	if [ -e /srv/ssh/jail/ftptest.txt ]; then
+		echo "FTP Test file already exists in destination!"
+		echo -n "Enter sudo password to remove the file: "; read SUDOPASS
+		echo SUDOPASS | sudo -S rm /srv/ssh/jail/ftptest.txt
+	fi
+	echo "Creating /tmp/ftptest.txt..."
+	touch /tmp/ftptest.txt
+	cat <<EOT >>/tmp/.ftp.tmp
+	open localhost
+	user administator $FTPPASS
+	put /tmp/ftptest.txt ftptest.txt
+	bye
+EOT
+
+	echo "Testing FTP upload to localhost."
+	ftp -n < /tmp/.ftp.tmp
+	if [ -e /srv/ssh/jail/ftptest.txt ]; then
+		echo "FTP works. Cleaning up."
+		#rm /tmp/ftptest.txt
+		#rm /tmp/.ftp.tmp
+	else
+		echo "Unable to complete FTP test. Please verify /srv/ssh/jail/ftptest.txt "
+		echo "exists or test FTP connection to this RPi manually."
+	fi
+
 }
 
 clear
@@ -132,8 +165,11 @@ fi
 
 # FTP_TEST
 if [ "$FTP_TEST" = "YES" ]; then
-	echo "Checking FTP..."
-	check_svc vs-ftpd
+	echo "Checking FTP daemon..."
+	check_svc vsftpd
+	if [ "$ASTATUS" = "active" ]; then
+		test_ftp	
+	fi
 	echo " "
 else
 	echo "FTP test is disabled. Skipping..."
@@ -150,8 +186,8 @@ fi
 
 # DNS_TEST 
 if [ "$DNS_TEST" = "YES" ]; then
-	#echo "Checking DNS..."
-	echo "DNS test is not (yet) available. Skipping..."
+	echo "Checking DNS..."
+	drill
 	echo " "
 else
 	echo "DNS test is disabled. Skipping..."
@@ -160,3 +196,4 @@ fi
 
 
 echo "Test complete."
+

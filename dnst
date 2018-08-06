@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Quick script for testing DNS
+
+
+#export HOSTNAME=$(hostname)
+export HOSTNAME=www
+#export DOMAIN=theatre.reg
+export DOMAIN=yahoo.com
+export FQDN=$HOSTNAME.$DOMAIN
+export RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
+export DNSAUTH=$(drill -4 @$RESOLVER $DOMAIN NS | grep -v '^\;\|^$' | grep -v 'NS\|AAAA' | tail -1 | awk '{print $5}')
+
+
+echo "Domain Name: $DOMAIN"
+echo "Resolver: $RESOLVER"
+echo "Authoritative Server: $DNSAUTH"
+echo "Querying "
+
+echo "Querying auth server..."
+drill @$DNSAUTH $FQDN
+
+echo "Querying local resolver..."
+drill @$RESOLVER $FQDN
