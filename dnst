@@ -4,21 +4,27 @@
 
 
 #export HOSTNAME=$(hostname)
-export HOSTNAME=www
-#export DOMAIN=theatre.reg
-export DOMAIN=yahoo.com
+export HOSTNAME=$(hostname)
+export DOMAIN=theatre.reg
+#export DOMAIN=yahoo.com
 export FQDN=$HOSTNAME.$DOMAIN
 export RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
-export DNSAUTH=$(drill -4 @$RESOLVER $DOMAIN NS | grep -v '^\;\|^$' | grep -v 'NS\|AAAA' | tail -1 | awk '{print $5}')
+export DNSAUTH=$(drill -4 @$RESOLVER $DOMAIN NS | grep -v '^\;\|^$\|AAAA' | tail -1 | awk '{print $5}')
 
-
+echo "Host name: $HOSTNAME"
 echo "Domain Name: $DOMAIN"
+echo "FQDN: $FQDN"
 echo "Resolver: $RESOLVER"
 echo "Authoritative Server: $DNSAUTH"
-echo "Querying "
-
+echo " "
+echo " "
 echo "Querying auth server..."
-drill @$DNSAUTH $FQDN
+drill @$DNSAUTH $FQDN | grep -v '^\;\|^$'
+
+# strip out the response code
+# grep rcode | cut -f2 -d, | sed s/^.//
 
 echo "Querying local resolver..."
-drill @$RESOLVER $FQDN
+drill @$RESOLVER $FQDN | grep -v '^\;\|^$'
+
+

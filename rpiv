@@ -22,11 +22,11 @@ NTP_TEST=YES
 TIMESYNCD_TEST=YES
 FTP_TEST=YES
 HAMACHI_TEST=YES
-DNS_TEST=NO
+DNS_TEST=YES
 
 # Set FTP password here if you don't want to enter it on cmd line.
 # Default: empty
-FTPPASS=
+FTPPASS=password1
 
 
 
@@ -41,7 +41,7 @@ export IP=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
 export DHCP_ENABLED=$(grep IP /etc/netctl/ethernet-dhcp | grep -v '^#')
 #export FTPSTATUS=$(systemctl status vsftp | grep Active | awk '{print $2}')
 export RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
-export DNSAUTHSRV=$(drill -4 @RESOLVER $DOMAIN NS | grep -v '^\;\|^$' | grep -v 'NS\|AAAA' | tail -1 | awk '{print $5}')
+export DNSAUTHSRV=$(drill -4 @$RESOLVER $DOMAIN NS | grep -v '^\;\|^$' | grep -v 'NS\|AAAA' | tail -1 | awk '{print $5}')
 
 ########################
 # FUNCTIONS TO BE MOVED
@@ -61,34 +61,63 @@ fi
 }
 
 
+test_dns() {
+	RESOLVER=$(grep nameserver /etc/resolv.conf | grep -v "^#" | awk '{print $2}')
+	DNSAUTH=$(drill -4 @$RESOLVER $DOMAIN NS | grep -v '^\;\|^$\|AAAA' | tail -1 | awk '{print $5}')
+	echo "Domain Name: $DOMAIN"
+	echo "Resolver: $RESOLVER"
+	echo "Authoritative Server: $DNSAUTH"
+	echo " "
+	echo " "
+	echo "Querying auth server..."
+	drill @$DNSAUTH $FQDN | grep -v '^\;\|^$'
+
+	# If I can ever get a multiline array working in bash, I can grab the repsonse code too.
+	# grep rcode | cut -f2 -d, | sed s/^.//
+
+	echo "Querying local resolver..."
+	drill @$RESOLVER $FQDN | grep -v '^\;\|^$'
+
+}
+
+remove_ftptestfile() {
+	if [ -e /srv/ssh/jail/ftptest.txt ]; then
+		echo "FTP Test file already exists in destination."
+		echo -n "Enter sudo password to remove the file: "; read SUDOPASS
+		if ! "echo $SUDOPASS | sudo -S rm /srv/ssh/jail/ftptest.txt"; then
+			echo $?
+			echo "We may have a problem. Trying again. "
+			echo " "
+			remove_ftptestfile
+
+		else
+			echo $?
+		fi
+	fi
+}
 
 test_ftp() {
+	if [ ! -e /usr/bin/lftp ]; then
+		echo "The lftp program is not installed."
+		echo "Please test FTP manually."
+		echo " "
+		return 1;
+	fi
 	if [ -z "$FTPPASS" ]; then
 		echo -n "Enter FTP password for username 'administrator': "; read FTPPASS
 	fi
-	if [ -e /srv/ssh/jail/ftptest.txt ]; then
-		echo "FTP Test file already exists in destination!"
-		echo -n "Enter sudo password to remove the file: "; read SUDOPASS
-		echo SUDOPASS | sudo -S rm /srv/ssh/jail/ftptest.txt
-	fi
+	remove_ftptestfile
 	echo "Creating /tmp/ftptest.txt..."
 	touch /tmp/ftptest.txt
-	cat <<EOT >>/tmp/.ftp.tmp
-	open localhost
-	user administator $FTPPASS
-	put /tmp/ftptest.txt ftptest.txt
-	bye
-EOT
-
 	echo "Testing FTP upload to localhost."
-	ftp -n < /tmp/.ftp.tmp
+	lftp -c "set net:max-retries 2; open -u administrator,$FTPPASS localhost; put /tmp/ftptest.txt"
 	if [ -e /srv/ssh/jail/ftptest.txt ]; then
 		echo "FTP works. Cleaning up."
-		#rm /tmp/ftptest.txt
+		rm /tmp/ftptest.txt
 		#rm /tmp/.ftp.tmp
 	else
-		echo "Unable to complete FTP test. Please verify /srv/ssh/jail/ftptest.txt "
-		echo "exists or test FTP connection to this RPi manually."
+		echo "Unable to complete FTP test. Please check for /srv/ssh/jail/ftptest.txt "
+		echo "or test FTP connection to this RPi manually."
 	fi
 
 }
@@ -169,6 +198,10 @@ if [ "$FTP_TEST" = "YES" ]; then
 	check_svc vsftpd
 	if [ "$ASTATUS" = "active" ]; then
 		test_ftp	
+		#echo "The vsftpd daemon is running."
+		#echo "Please attempt to transfer a file to $IP."
+	else
+		echo "The vsftpd service is not running. Skipping FTP test."
 	fi
 	echo " "
 else
@@ -187,7 +220,7 @@ fi
 # DNS_TEST 
 if [ "$DNS_TEST" = "YES" ]; then
 	echo "Checking DNS..."
-	drill
+	test_dns
 	echo " "
 else
 	echo "DNS test is disabled. Skipping..."
