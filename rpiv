@@ -9,9 +9,9 @@
 
 
 
-########################
+############################################################################### 
 # Configuration
-########################
+############################################################################### 
 
 # In the future, these settings will be automatically configured based on which 
 # company or player grouping is being tested. For now, set these manually. 
@@ -34,14 +34,15 @@ FTPPASS=
 
 
 
-#######################
-# Variables
-#######################
+############################################################################### 
+# VARIABLES 
+############################################################################### 
 
 
-export HOSTNAME=$(hostname -s)
-export FQDN=$(hostname).theatre.reg
+export HOSTNAME=$(hostname)
+export SHORTNAME=$(hostname -s)
 export DOMAIN=theatre.reg
+export FQDN=$SHORTNAME.$DOMAIN
 export IP=$(/sbin/ip -o -4 addr list eth0 | awk '{print $4}' | cut -d/ -f1)
 export DHCP_ENABLED=$(grep IP /etc/netctl/ethernet-dhcp | grep -v '^#')
 #export FTPSTATUS=$(systemctl status vsftp | grep Active | awk '{print $2}')
@@ -50,9 +51,9 @@ export DNSAUTHSRV=$(drill -4 @$RESOLVER $DOMAIN NS | grep -v '^\;\|^$' | grep -v
 
 
 
-########################
-# FUNCTIONS TO BE MOVED
-########################
+############################################################################### 
+# FUNCTIONS
+############################################################################### 
 
 
 # Simple function to test if systemd unit is enabled and running. 
@@ -122,8 +123,8 @@ remove_ftptestfile() {
 	fi
 }
 
-# Requires lftp. Standard ftp client is too interactive and has no batch
-# more.
+# Requires lftp. Standard ftp client is too interactive and has no batch mode.
+# Needs more work.
 test_ftp() {
 	if [ ! -e /usr/bin/lftp ]; then
 		echo "The lftp program is not installed."
@@ -150,8 +151,29 @@ test_ftp() {
 
 }
 
+
+#
+get_ntp() {
+	# Current NTP settings
+	# Need to actually grab these as variables and provide better output. 
+	grep NTP /etc/systemd/timesyncd.conf
+}
+
+
+############################################################################### 
+# MAIN
+############################################################################### 
+
 clear
 
+echo "############################################################################################"
+echo "############################################################################################"
+echo "############################################################################################"
+echo "Checking Configuration!"
+echo " "
+
+echo "############################################################################################"
+echo "############################################################################################"
 
 echo "############################################################################################"
 # DHCP_TEST
@@ -237,7 +259,14 @@ echo "##########################################################################
 if [ $TIMESYNCD_TEST = "YES" ]; then
 	echo "Checking Timesyncd..."
 	check_svc systemd-timesyncd
+	if [ "$ASTATUS" = "active" ]; then
+		echo "Current NTP settings: "
+		get_ntp
 	echo " "
+	else
+		echo "The systemd-timesyncd daemon is not running."
+		echo "Please run 'sudo systemctl start systemd-timesyncd"
+		fi
 else
 	echo "Timesync test is disabled. Skipping..."
 fi
@@ -267,9 +296,21 @@ echo "##########################################################################
 if [ "$HAMACHI" = "YES" ]; then
 	echo Checking Hamachi...
 	check_svc hamachi
+	if [ "$ASTATUS" = "active" ]; then
+		# Enable this test when it exists.
+		#test_hamachi	
+		echo "The Hamachi daemon is running."
+		echo "Please verify access manually or disable if needed."
+	else
+		echo "The Hamachi service is not running. Skipping Hamachi test."
+		echo "if Hamachi is required, please run 'systemctl enable hamachi'"
+		echo "followed by 'systemctl start hamachi'."
+	fi
+
 	echo " "
 else
 	echo "Hamachi test is disabled. Skipping..."
+	echo " "
 fi
 
 
